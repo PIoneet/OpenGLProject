@@ -16,6 +16,11 @@ public:
     float idleTimer = 0.0f;
     float bodyBobOffsetY = 0.0f;
 
+
+    float walkTimer = 0.0f;
+    float moveSpeed = 3.5f;
+    float turnSpeed = 120.0f;
+
     float torsoTwistY = 0.0f;
     float torsoPitchX = 0.0f;
     float headYaw = 0.0f, headPitch = 0.0f;
@@ -45,6 +50,56 @@ public:
 
         rHipX = 12.0f;  rKneeX = 20.0f; rAnkleX = -8.0f;
         lHipX = -15.0f; lKneeX = 20.0f; lAnkleX = -5.0f;
+    }
+
+    void updateMove(float dt, int moveDir, int turnDir) {
+        if (turnDir != 0) {
+            bodyYaw += turnDir * turnSpeed * dt;
+        }
+
+        if (moveDir == 0) {
+            if (turnDir != 0) {
+                walkTimer += dt * 8.0f;
+                rHipX = 12.0f + sin(walkTimer) * 10.0f;
+                lHipX = -15.0f - sin(walkTimer) * 10.0f;
+            }
+            else {
+                updateIdle(dt);
+            }
+            return;
+        }
+
+        float rad = glm::radians(bodyYaw);
+        glm::vec3 forward(sin(rad), 0.0f, cos(rad));
+        position += forward * (float)moveDir * moveSpeed * dt;
+
+        position.x = glm::clamp(position.x, -4.5f, 4.5f);
+        position.z = glm::clamp(position.z, -4.5f, 4.5f);
+
+        walkTimer += dt * 10.0f * moveDir;
+        float swing = sin(walkTimer);
+        float bounce = fabs(cos(walkTimer));
+
+        bodyBobOffsetY = bounce * 0.08f;
+        torsoPitchX = (moveDir > 0) ? 8.0f : -5.0f;
+        torsoTwistY = -10.0f + swing * 12.0f;
+        headYaw = -torsoTwistY;
+
+        rHipX = swing * 35.0f;
+        lHipX = -swing * 35.0f;
+
+        rKneeX = (swing > 0.0f) ? swing * 35.0f : 10.0f;
+        lKneeX = (swing < 0.0f) ? -swing * 35.0f : 10.0f;
+        rAnkleX = 0.0f;
+        lAnkleX = 0.0f;
+
+        rShoulderX = -45.0f - swing * 20.0f;
+        rShoulderZ = 15.0f;
+        rElbowX = -95.0f;
+
+        lShoulderX = -55.0f + swing * 20.0f;
+        lShoulderZ = -15.0f;
+        lElbowX = -85.0f;
     }
 
     void drawBox(glm::mat4 jointMat, glm::vec3 pivotOffset, glm::vec3 size, glm::vec3 color, unsigned int shaderID, unsigned int vao) {

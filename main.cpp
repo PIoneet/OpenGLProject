@@ -25,6 +25,8 @@ void main() {
 unsigned int shaderProgram;
 unsigned int cubeVAO, cubeVBO;
 
+bool keyW = false, keyS = false, keyA = false, keyD = false;
+
 Robot player;
 
 void initOpenGL() {
@@ -91,8 +93,31 @@ void display() {
     glutSwapBuffers();
 }
 
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'w' || key == 'W') keyW = true;
+    if (key == 's' || key == 'S') keyS = true;
+    if (key == 'a' || key == 'A') keyA = true;
+    if (key == 'd' || key == 'D') keyD = true;
+}
+
+void keyboardUp(unsigned char key, int x, int y) {
+    if (key == 'w' || key == 'W') keyW = false;
+    if (key == 's' || key == 'S') keyS = false;
+    if (key == 'a' || key == 'A') keyA = false;
+    if (key == 'd' || key == 'D') keyD = false;
+}
+
 void timer(int value) {
-    player.updateIdle(0.016f);
+    int moveDir = 0;
+    if (keyW) moveDir += 1;
+    if (keyS) moveDir -= 1;
+
+    int turnDir = 0;
+    if (keyA) turnDir += 1;
+    if (keyD) turnDir -= 1;
+
+    player.updateMove(0.016f, moveDir, turnDir);
+
     glutPostRedisplay();
     glutTimerFunc(16, timer, 0);
 }
@@ -101,12 +126,16 @@ int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowSize(800, 600);
-    glutCreateWindow("Step 1: Clean Cube Robot on Wide Floor");
+    glutCreateWindow("Step 2: Robot Walk & Direction Movement");
 
     glewInit();
     initOpenGL();
 
     glutDisplayFunc(display);
+
+    glutKeyboardFunc(keyboard);
+    glutKeyboardUpFunc(keyboardUp);
+
     glutTimerFunc(0, timer, 0);
     glutMainLoop();
     return 0;
