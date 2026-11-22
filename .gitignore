@@ -426,3 +426,6 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# 게임에서 F12 로 저장한 스크린샷
+shot_*.bmp
