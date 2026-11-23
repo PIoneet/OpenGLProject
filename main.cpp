@@ -98,6 +98,8 @@ void keyboard(unsigned char key, int x, int y) {
     if (key == 's' || key == 'S') keyS = true;
     if (key == 'a' || key == 'A') keyA = true;
     if (key == 'd' || key == 'D') keyD = true;
+
+    if (key == ' ') player.startDodge();
 }
 
 void keyboardUp(unsigned char key, int x, int y) {
@@ -116,7 +118,7 @@ void timer(int value) {
     if (keyA) turnDir += 1;
     if (keyD) turnDir -= 1;
 
-    player.updateMove(0.016f, moveDir, turnDir);
+    player.update(0.016f, moveDir, turnDir);
 
     glutPostRedisplay();
     glutTimerFunc(16, timer, 0);

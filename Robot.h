@@ -6,6 +6,17 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <math.h>
 
+enum RobotState {
+    STATE_IDLE,
+    STATE_MOVE,
+    STATE_DODGE,
+    STATE_ATTACK,
+    STATE_HIT,
+    STATE_DOWN,
+    STATE_GRAB,
+    STATE_ULTIMATE
+};
+
 class Robot {
 public:
     glm::vec3 position = glm::vec3(0.0f, 2.4f, 0.0f);
@@ -21,6 +32,10 @@ public:
     float moveSpeed = 3.5f;
     float turnSpeed = 120.0f;
 
+    RobotState currentState = STATE_IDLE;
+    float stateTimer = 0.0f;
+    float stateDuration = 0.0f;
+
     float torsoTwistY = 0.0f;
     float torsoPitchX = 0.0f;
     float headYaw = 0.0f, headPitch = 0.0f;
@@ -31,8 +46,29 @@ public:
     float rHipX = 0.0f, rKneeX = 0.0f, rAnkleX = 0.0f;
     float lHipX = 0.0f, lKneeX = 0.0f, lAnkleX = 0.0f;
 
+    float lerp(float start, float end, float t) {
+        t = glm::clamp(t, 0.0f, 1.0f);
+        return start + (end - start) * t;
+    }
+
+    float easeIn(float t) {
+        t = glm::clamp(t, 0.0f, 1.0f);
+        return t * t;
+    }
+
+    float easeOut(float t) {
+        t = glm::clamp(t, 0.0f, 1.0f);
+        return 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+    }
+
+    void changeState(RobotState newState, float duration = 0.0f) {
+        currentState = newState;
+        stateTimer = 0.0f;
+        stateDuration = duration;
+    }
+
     void updateIdle(float dt) {
-        idleTimer += dt * 4.5f; // 숨쉬기 리듬 속도
+        idleTimer += dt * 4.5f;
 
         float bob = sin(idleTimer);
         bodyBobOffsetY = bob * 0.04f;
@@ -100,6 +136,78 @@ public:
         lShoulderX = -55.0f + swing * 20.0f;
         lShoulderZ = -15.0f;
         lElbowX = -85.0f;
+    }
+
+    // [3단계 추가] 스페이스바로 회피(스텝) 시작하기
+    void startDodge() {
+        // 이미 회피 중이거나 다른 액션 중이면 중복 발동 막기
+        if (currentState == STATE_IDLE || currentState == STATE_MOVE) {
+            changeState(STATE_DODGE, 0.35f); // 0.35초 동안 회피 실행
+        }
+    }
+
+    // [3단계 추가] 보간(Ease-Out)을 적용한 회피 스텝 애니메이션
+    void updateDodge(float dt) {
+        float t = stateTimer / stateDuration; // 진행률 (0.0 -> 1.0)
+        float burst = easeOut(t);             // 초반에 확 치고 나가는 가속 곡선
+
+        // 1) 바라보는 방향으로 빠르게 미끄러지듯 이동 (초반에 빠르고 끝에서 감속)
+        float rad = glm::radians(bodyYaw);
+        glm::vec3 forward(sin(rad), 0.0f, cos(rad));
+        float dashSpeed = 10.0f * (1.0f - t); // 시간이 지날수록 속도 감속
+        position += forward * dashSpeed * dt;
+        position.x = glm::clamp(position.x, -14.0f, 14.0f);
+        position.z = glm::clamp(position.z, -14.0f, 14.0f);
+
+        // 2) 전반부(0.0~0.5): 자세를 낮추고 몸을 숙임 / 후반부(0.5~1.0): 원래 자세로 복귀
+        if (t < 0.5f) {
+            float subT = easeOut(t / 0.5f);
+            bodyBobOffsetY = lerp(0.0f, -0.35f, subT); // 무게중심 낮추기
+            torsoPitchX = lerp(0.0f, 30.0f, subT);  // 상체 앞으로 숙이기
+            torsoTwistY = lerp(-20.0f, 25.0f, subT);
+            rHipX = lerp(12.0f, -40.0f, subT); rKneeX = lerp(20.0f, 65.0f, subT);
+            lHipX = lerp(-15.0f, 35.0f, subT); lKneeX = lerp(20.0f, 45.0f, subT);
+            rShoulderX = lerp(-45.0f, -20.0f, subT);
+            lShoulderX = lerp(-60.0f, -80.0f, subT);
+        }
+        else {
+            float subT = easeIn((t - 0.5f) / 0.5f);
+            bodyBobOffsetY = lerp(-0.35f, 0.0f, subT);
+            torsoPitchX = lerp(30.0f, 0.0f, subT);
+            torsoTwistY = lerp(25.0f, -20.0f, subT);
+            rHipX = lerp(-40.0f, 12.0f, subT); rKneeX = lerp(65.0f, 20.0f, subT);
+            lHipX = lerp(35.0f, -15.0f, subT); lKneeX = lerp(45.0f, 20.0f, subT);
+            rShoulderX = lerp(-20.0f, -45.0f, subT);
+            lShoulderX = lerp(-80.0f, -60.0f, subT);
+        }
+    }
+
+    void update(float dt, int moveDir, int turnDir) {
+        stateTimer += dt;
+
+        switch (currentState) {
+        case STATE_IDLE:
+        case STATE_MOVE:
+            if (moveDir != 0 || turnDir != 0) {
+                currentState = STATE_MOVE;
+            }
+            else {
+                currentState = STATE_IDLE;
+            }
+            updateMove(dt, moveDir, turnDir);
+            break;
+
+        case STATE_DODGE:
+            updateDodge(dt);
+            if (stateTimer >= stateDuration) {
+                torsoPitchX = 0.0f;
+                changeState(STATE_IDLE);
+            }
+            break;
+
+        default:
+            break;
+        }
     }
 
     void drawBox(glm::mat4 jointMat, glm::vec3 pivotOffset, glm::vec3 size, glm::vec3 color, unsigned int shaderID, unsigned int vao) {
