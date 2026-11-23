@@ -4,6 +4,9 @@ namespace
 {
     // 직전 프레임에 눌려 있었는지 기억해 두고, "안 눌림 -> 눌림" 인 순간만 true 로 만든다.
     bool gPrevJump{ false };
+    bool gPrevPunch{ false };
+    bool gPrevKick{ false };
+    bool gPrevDodge{ false };
     bool gPrevSpecial{ false };
     bool gPrevReset{ false };
     bool gPrevDmgEnemy{ false };
@@ -44,6 +47,9 @@ void PollInput(GLFWwindow* window, InputState& out)
 
     // ---- 한 번만 반응하는 입력 ----
     out.jumpPressed = JustPressed(Down(window, GLFW_KEY_SPACE), gPrevJump);
+    out.punchPressed = JustPressed(Down(window, GLFW_KEY_J), gPrevPunch);
+    out.kickPressed = JustPressed(Down(window, GLFW_KEY_L), gPrevKick);
+    out.dodgePressed = JustPressed(Down(window, GLFW_KEY_LEFT_SHIFT), gPrevDodge);
     out.specialPressed = JustPressed(Down(window, GLFW_KEY_K), gPrevSpecial);
     out.resetPressed = JustPressed(Down(window, GLFW_KEY_I), gPrevReset);
 

@@ -66,6 +66,11 @@ namespace
         }
         else
         {
+            //  [추가] 펀치(J), 킥(L), 회피(Left Shift) 입력 연결
+            if (input.punchPressed) StartRobotPunch(player);
+            if (input.kickPressed)  StartRobotKick(player);
+            if (input.dodgePressed) StartRobotDodge(player);
+            
             UpdateRobotMotion(player, input.move, input.turn, input.jumpPressed, dt);
 
             // 적은 제자리에 서서 플레이어를 바라본다. (행동 트리 없음 - 제안서대로)
@@ -111,6 +116,8 @@ namespace
         std::cout <<
             "---------------- 조작법 ----------------\n"
             "  W / A / S / D   : 이동 (전진/좌/후진/우)\n"
+            "  J / L           : 펀치 (3단 콤보) / 킥 (2단 콤보)\n"
+            "  Left Shift      : 회피 스텝\n"
             "  <- / ->         : 방향 회전\n"
             "  Space           : 점프\n"
             "  K               : 필살기 (구현 예정)\n"

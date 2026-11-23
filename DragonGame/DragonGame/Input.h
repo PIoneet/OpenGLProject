@@ -19,6 +19,9 @@ struct InputState
     float     turn{ 0.0f };     // 좌(-1) / 우(+1) 회전
 
     bool jumpPressed{ false };      // Space
+    bool punchPressed{ false };     // J : 3단 펀치 콤보
+    bool kickPressed{ false };      // L : 2단 킥 콤보
+    bool dodgePressed{ false };     // Left Shift : 회피 스텝
     bool specialPressed{ false };   // K   (필살기 - 아직 비어 있음)
     bool resetPressed{ false };     // I
     bool quitPressed{ false };      // Q / ESC
