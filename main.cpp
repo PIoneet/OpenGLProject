@@ -100,6 +100,8 @@ void keyboard(unsigned char key, int x, int y) {
     if (key == 'd' || key == 'D') keyD = true;
 
     if (key == ' ') player.startDodge();
+    if (key == 'j' || key == 'J') player.startPunch();
+    if (key == 'k' || key == 'K') player.startKick();
 }
 
 void keyboardUp(unsigned char key, int x, int y) {

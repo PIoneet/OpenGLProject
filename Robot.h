@@ -23,7 +23,6 @@ public:
     float bodyYaw = 0.0f;
     glm::vec3 mainColor = glm::vec3(0.2f, 0.45f, 0.85f);
 
-    // 숨쉬기 리듬용 높이 오프셋 및 타이머
     float idleTimer = 0.0f;
     float bodyBobOffsetY = 0.0f;
 
@@ -35,6 +34,13 @@ public:
     RobotState currentState = STATE_IDLE;
     float stateTimer = 0.0f;
     float stateDuration = 0.0f;
+
+    int attackType = 0;
+    bool isAttackActive = false;
+
+    glm::vec3 rFistWorldPos = glm::vec3(0.0f);
+    glm::vec3 lFistWorldPos = glm::vec3(0.0f);
+    glm::vec3 rFootWorldPos = glm::vec3(0.0f);
 
     float torsoTwistY = 0.0f;
     float torsoPitchX = 0.0f;
@@ -138,32 +144,27 @@ public:
         lElbowX = -85.0f;
     }
 
-    // [3단계 추가] 스페이스바로 회피(스텝) 시작하기
     void startDodge() {
-        // 이미 회피 중이거나 다른 액션 중이면 중복 발동 막기
         if (currentState == STATE_IDLE || currentState == STATE_MOVE) {
-            changeState(STATE_DODGE, 0.35f); // 0.35초 동안 회피 실행
+            changeState(STATE_DODGE, 0.35f);
         }
     }
 
-    // [3단계 추가] 보간(Ease-Out)을 적용한 회피 스텝 애니메이션
     void updateDodge(float dt) {
-        float t = stateTimer / stateDuration; // 진행률 (0.0 -> 1.0)
-        float burst = easeOut(t);             // 초반에 확 치고 나가는 가속 곡선
+        float t = stateTimer / stateDuration;
+        float burst = easeOut(t);
 
-        // 1) 바라보는 방향으로 빠르게 미끄러지듯 이동 (초반에 빠르고 끝에서 감속)
         float rad = glm::radians(bodyYaw);
         glm::vec3 forward(sin(rad), 0.0f, cos(rad));
-        float dashSpeed = 10.0f * (1.0f - t); // 시간이 지날수록 속도 감속
+        float dashSpeed = 10.0f * (1.0f - t);
         position += forward * dashSpeed * dt;
         position.x = glm::clamp(position.x, -14.0f, 14.0f);
         position.z = glm::clamp(position.z, -14.0f, 14.0f);
 
-        // 2) 전반부(0.0~0.5): 자세를 낮추고 몸을 숙임 / 후반부(0.5~1.0): 원래 자세로 복귀
         if (t < 0.5f) {
             float subT = easeOut(t / 0.5f);
-            bodyBobOffsetY = lerp(0.0f, -0.35f, subT); // 무게중심 낮추기
-            torsoPitchX = lerp(0.0f, 30.0f, subT);  // 상체 앞으로 숙이기
+            bodyBobOffsetY = lerp(0.0f, -0.35f, subT);
+            torsoPitchX = lerp(0.0f, 30.0f, subT);
             torsoTwistY = lerp(-20.0f, 25.0f, subT);
             rHipX = lerp(12.0f, -40.0f, subT); rKneeX = lerp(20.0f, 65.0f, subT);
             lHipX = lerp(-15.0f, 35.0f, subT); lKneeX = lerp(20.0f, 45.0f, subT);
@@ -179,6 +180,90 @@ public:
             lHipX = lerp(35.0f, -15.0f, subT); lKneeX = lerp(45.0f, 20.0f, subT);
             rShoulderX = lerp(-20.0f, -45.0f, subT);
             lShoulderX = lerp(-80.0f, -60.0f, subT);
+        }
+    }
+
+    void startPunch() {
+        if (currentState == STATE_IDLE || currentState == STATE_MOVE) {
+            attackType = 1;
+            isAttackActive = false;
+            changeState(STATE_ATTACK, 0.45f);
+        }
+    }
+
+    void startKick() {
+        if (currentState == STATE_IDLE || currentState == STATE_MOVE) {
+            attackType = 2;
+            isAttackActive = false;
+            changeState(STATE_ATTACK, 0.55f);
+        }
+    }
+
+    void updateAttack(float dt) {
+        float t = stateTimer / stateDuration;
+
+        if (attackType == 1) {
+            // ==================== [1. 오른손 스트레이트 펀치] ====================
+            if (t < 0.25f) {
+                float subT = easeIn(t / 0.25f);
+                isAttackActive = false;
+                torsoTwistY = lerp(-20.0f, -50.0f, subT);
+                headYaw = -torsoTwistY;
+                rShoulderX = lerp(-45.0f, 15.0f, subT);
+                rElbowX = lerp(-100.0f, -120.0f, subT);
+            }
+            else if (t < 0.55f) {
+                float subT = easeOut((t - 0.25f) / 0.30f);
+                isAttackActive = true; //  이 구간에서만 충돌 판정 활성화
+                torsoTwistY = lerp(-50.0f, 45.0f, subT);
+                headYaw = -torsoTwistY;
+                torsoPitchX = lerp(0.0f, 10.0f, subT);
+                rShoulderX = lerp(15.0f, -90.0f, subT);
+                rShoulderZ = lerp(15.0f, 0.0f, subT);
+                rElbowX = lerp(-120.0f, 0.0f, subT);
+                lShoulderX = lerp(-60.0f, -20.0f, subT);
+            }
+            else {
+                float subT = easeIn((t - 0.55f) / 0.45f);
+                isAttackActive = false;
+                torsoTwistY = lerp(45.0f, -20.0f, subT);
+                headYaw = -torsoTwistY;
+                torsoPitchX = lerp(10.0f, 0.0f, subT);
+                rShoulderX = lerp(-90.0f, -45.0f, subT);
+                rShoulderZ = lerp(0.0f, 15.0f, subT);
+                rElbowX = lerp(0.0f, -100.0f, subT);
+                lShoulderX = lerp(-20.0f, -60.0f, subT);
+            }
+        }
+        else if (attackType == 2) {
+            // ==================== [2. 오른발 앞차기 (하이킥)] ====================
+            if (t < 0.30f) {
+                float subT = easeIn(t / 0.30f);
+                isAttackActive = false;
+                torsoPitchX = lerp(0.0f, -15.0f, subT);
+                rHipX = lerp(12.0f, -55.0f, subT);
+                rKneeX = lerp(20.0f, 95.0f, subT);
+            }
+            else if (t < 0.65f) {
+                float subT = easeOut((t - 0.30f) / 0.35f);
+                isAttackActive = true; //  이 구간에서만 충돌 판정 활성화
+                torsoPitchX = lerp(-15.0f, -25.0f, subT);
+                torsoTwistY = lerp(-20.0f, 20.0f, subT);
+                headYaw = -torsoTwistY;
+                rHipX = lerp(-55.0f, -105.0f, subT);
+                rKneeX = lerp(95.0f, 0.0f, subT);
+                rAnkleX = lerp(-8.0f, 25.0f, subT);
+            }
+            else {
+                float subT = easeIn((t - 0.65f) / 0.35f);
+                isAttackActive = false;
+                torsoPitchX = lerp(-25.0f, 0.0f, subT);
+                torsoTwistY = lerp(20.0f, -20.0f, subT);
+                headYaw = -torsoTwistY;
+                rHipX = lerp(-105.0f, 12.0f, subT);
+                rKneeX = lerp(0.0f, 20.0f, subT);
+                rAnkleX = lerp(25.0f, -8.0f, subT);
+            }
         }
     }
 
@@ -200,6 +285,15 @@ public:
         case STATE_DODGE:
             updateDodge(dt);
             if (stateTimer >= stateDuration) {
+                torsoPitchX = 0.0f;
+                changeState(STATE_IDLE);
+            }
+            break;
+
+        case STATE_ATTACK:
+            updateAttack(dt);
+            if (stateTimer >= stateDuration) {
+                isAttackActive = false;
                 torsoPitchX = 0.0f;
                 changeState(STATE_IDLE);
             }
@@ -260,6 +354,7 @@ public:
 
         glm::mat4 rWristJoint = glm::translate(rElbowJoint, glm::vec3(0.0f, -0.6f, 0.0f));
         drawBox(rWristJoint, glm::vec3(0.0f, -0.15f, 0.0f), glm::vec3(0.32f, 0.32f, 0.32f), red, shaderID, vao);
+        rFistWorldPos = glm::vec3(glm::translate(rWristJoint, glm::vec3(0.0f, -0.15f, 0.0f))[3]);
 
         glm::mat4 lShoulderJoint = glm::translate(torsoMat, glm::vec3(-0.65f, 0.5f, 0.0f));
         lShoulderJoint = glm::rotate(lShoulderJoint, glm::radians(lShoulderX), glm::vec3(1, 0, 0));
@@ -272,6 +367,7 @@ public:
 
         glm::mat4 lWristJoint = glm::translate(lElbowJoint, glm::vec3(0.0f, -0.6f, 0.0f));
         drawBox(lWristJoint, glm::vec3(0.0f, -0.15f, 0.0f), glm::vec3(0.32f, 0.32f, 0.32f), red, shaderID, vao);
+        lFistWorldPos = glm::vec3(glm::translate(lWristJoint, glm::vec3(0.0f, -0.15f, 0.0f))[3]);
 
         glm::mat4 rHipJoint = glm::translate(torsoMat, glm::vec3(0.3f, -0.6f, 0.0f));
         rHipJoint = glm::rotate(rHipJoint, glm::radians(rHipX), glm::vec3(1, 0, 0));
@@ -284,6 +380,7 @@ public:
         glm::mat4 rAnkleJoint = glm::translate(rKneeJoint, glm::vec3(0.0f, -0.8f, 0.0f));
         rAnkleJoint = glm::rotate(rAnkleJoint, glm::radians(rAnkleX), glm::vec3(1, 0, 0));
         drawBox(rAnkleJoint, glm::vec3(0.0f, -0.1f, 0.1f), glm::vec3(0.35f, 0.2f, 0.5f), red, shaderID, vao);
+        rFootWorldPos = glm::vec3(glm::translate(rAnkleJoint, glm::vec3(0.0f, -0.1f, 0.1f))[3]);
 
         glm::mat4 lHipJoint = glm::translate(torsoMat, glm::vec3(-0.3f, -0.6f, 0.0f));
         lHipJoint = glm::rotate(lHipJoint, glm::radians(lHipX), glm::vec3(1, 0, 0));
